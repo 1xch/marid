@@ -15,14 +15,13 @@ func NewTemplateData(b Block, f Flags) *TemplateData {
 	ret := &TemplateData{
 		Data: make(map[string]interface{}),
 	}
+
 	fn := func(fl *flag.Flag) {
 		ret.Data[fl.Name] = fl.Value
 	}
 	f.VisitAll(fn)
-	if b.Directory() == "." {
-		ret.Data["PackageName"] = "main"
-	} else {
-		ret.Data["PackageName"] = b.Directory()
-	}
+
+	ret.Data["PackageName"] = b.Package()
+
 	return ret
 }
