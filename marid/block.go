@@ -1,9 +1,4 @@
-package b
-
-import (
-	. "github.com/thrisp/marid/f"
-	. "github.com/thrisp/marid/l"
-)
+package marid
 
 type BlockSet map[string]Block
 

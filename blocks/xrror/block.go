@@ -3,19 +3,17 @@ package xrror
 import (
 	"flag"
 
-	. "github.com/thrisp/marid/b"
-	. "github.com/thrisp/marid/f"
-	. "github.com/thrisp/marid/l"
+	"github.com/thrisp/marid/marid"
 )
 
-var Xrror Block = BasicBlock(
+var Block marid.Block = marid.BasicBlock(
 	"xrror",
 	fs,
 	lr,
 	[]string{"xrror"},
 )
 
-var fs Flags = NewFlag("xrror", mkFlagSet())
+var fs marid.Flags = marid.NewFlag("xrror", mkFlagSet())
 
 var (
 	ErrorName         string
@@ -31,7 +29,7 @@ func mkFlagSet() *flag.FlagSet {
 	return ret
 }
 
-var lr Loader = MapLoader(ml)
+var lr marid.Loader = marid.MapLoader(ml)
 
 var ml map[string]string = map[string]string{
 	"xrror": tmpl,

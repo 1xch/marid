@@ -1,4 +1,4 @@
-package m
+package marid
 
 type settings struct {
 	verbose        bool

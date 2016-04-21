@@ -1,11 +1,9 @@
-package l
+package marid
 
 import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	. "github.com/thrisp/marid/x"
 )
 
 type LoaderSet []Loader

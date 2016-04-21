@@ -26,7 +26,6 @@ _testmain.go
 Godeps/*
 !Godeps/Godeps.json
 
-marid
 *.out
 *.old.*
 coverage.html

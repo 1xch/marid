@@ -1,10 +1,7 @@
-package m
+package marid
 
 import (
 	"flag"
-
-	. "github.com/thrisp/marid/b"
-	. "github.com/thrisp/marid/f"
 )
 
 type TemplateData struct {

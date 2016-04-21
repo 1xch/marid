@@ -1,4 +1,4 @@
-package m
+package marid
 
 import (
 	"fmt"
@@ -8,11 +8,6 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
-
-	. "github.com/thrisp/marid/b"
-	//. "github.com/thrisp/marid/f"
-	. "github.com/thrisp/marid/l"
-	. "github.com/thrisp/marid/x"
 )
 
 type Marid interface {

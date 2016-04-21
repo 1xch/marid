@@ -4,19 +4,17 @@ import (
 	"flag"
 	"strings"
 
-	. "github.com/thrisp/marid/b"
-	. "github.com/thrisp/marid/f"
-	. "github.com/thrisp/marid/l"
+	"github.com/thrisp/marid/marid"
 )
 
-var Configuration Block = BasicBlock(
+var Block marid.Block = marid.BasicBlock(
 	"configuration",
 	fs,
 	lr,
 	[]string{"configuration"},
 )
 
-var fs Flags = NewFlag("configuration", mkFlagSet())
+var fs marid.Flags = marid.NewFlag("configuration", mkFlagSet())
 
 var (
 	Configurable string
@@ -30,7 +28,7 @@ func mkFlagSet() *flag.FlagSet {
 	return ret
 }
 
-var lr Loader = MapLoader(ml)
+var lr marid.Loader = marid.MapLoader(ml)
 
 var ml map[string]string = map[string]string{
 	"configuration": tmpl,

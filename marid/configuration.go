@@ -1,10 +1,7 @@
-package m
+package marid
 
 import (
 	"sort"
-
-	. "github.com/thrisp/marid/b"
-	. "github.com/thrisp/marid/l"
 )
 
 type ConfigFn func(*marid) error

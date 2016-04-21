@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/thrisp/marid/b"
-	"github.com/thrisp/marid/b/configuration"
-	"github.com/thrisp/marid/b/xrror"
-	"github.com/thrisp/marid/m"
+	"github.com/thrisp/marid/blocks/configuration"
+	"github.com/thrisp/marid/blocks/xrror"
+	"github.com/thrisp/marid/marid"
 )
 
 var (
@@ -15,9 +14,9 @@ var (
 	blockArgs     []string
 	version       bool
 	verbose       bool
-	defaultBlocks []b.Block = []b.Block{
-		xrror.Xrror,
-		configuration.Configuration,
+	defaultBlocks []marid.Block = []marid.Block{
+		xrror.Block,
+		configuration.Block,
 	}
 )
 
@@ -70,7 +69,7 @@ func init() {
 }
 
 func main() {
-	marid := m.New(m.Verbose(verbose), m.Blocks(defaultBlocks...))
+	marid := marid.New(marid.Verbose(verbose), marid.Blocks(defaultBlocks...))
 	if err := marid.Configure(); err != nil {
 		marid.Fatalf("Marid configuration error: %s", err)
 	}

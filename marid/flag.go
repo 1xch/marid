@@ -1,4 +1,4 @@
-package f
+package marid
 
 import "flag"
 
