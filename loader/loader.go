@@ -1,11 +1,11 @@
-package l
+package loader
 
 import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	. "github.com/thrisp/marid/x"
+	x "github.com/thrisp/marid/xrror"
 )
 
 type LoaderSet []Loader
@@ -25,7 +25,7 @@ type BaseLoader struct {
 }
 
 func (b *BaseLoader) Load(name string) (string, error) {
-	return "", NoLoadMethod
+	return "", x.NoLoadMethod
 }
 
 func (b *BaseLoader) ListTemplates() []string {
@@ -52,7 +52,7 @@ func DirLoader(paths ...string) Loader {
 	for _, p := range paths {
 		p, err := filepath.Abs(filepath.Clean(p))
 		if err != nil {
-			d.Errors = append(d.Errors, PathError(p))
+			d.Errors = append(d.Errors, x.PathError(p))
 		}
 		d.Paths = append(d.Paths, p)
 	}
@@ -70,7 +70,7 @@ func (l *dirLoader) Load(name string) (string, error) {
 			}
 		}
 	}
-	return "", NoTemplateError(name)
+	return "", x.NoTemplateError(name)
 }
 
 func (l *dirLoader) ListTemplates() []string {
@@ -106,7 +106,7 @@ func (l *mapLoader) Load(name string) (string, error) {
 	if r, ok := l.TemplateMap[name]; ok {
 		return string(r), nil
 	}
-	return "", NoTemplateError(name)
+	return "", x.NoTemplateError(name)
 }
 
 func (l *mapLoader) ListTemplates() []string {

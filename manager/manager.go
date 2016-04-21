@@ -1,4 +1,4 @@
-package m
+package manager
 
 import (
 	"fmt"
@@ -9,12 +9,12 @@ import (
 	"strings"
 	"text/template"
 
-	. "github.com/thrisp/marid/b"
-	. "github.com/thrisp/marid/l"
-	. "github.com/thrisp/marid/x"
+	"github.com/thrisp/marid/block"
+	"github.com/thrisp/marid/loader"
+	x "github.com/thrisp/marid/xrror"
 )
 
-type Marid interface {
+type Manager interface {
 	Configuration
 	Logr
 	Doer
@@ -30,60 +30,59 @@ type Templater interface {
 	Fetch(string) (*template.Template, error)
 }
 
-type marid struct {
+type manager struct {
 	Configuration
 	Logr
 	*settings
 	*bufferPool
-	loaders LoaderSet
-	blocks  BlockSet
+	loaders loader.LoaderSet
+	blocks  block.BlockSet
 	funcs   map[string]interface{}
 }
 
-func New(cnf ...Config) Marid {
-	m := &marid{
+func New(cnf ...Config) Manager {
+	m := &manager{
 		settings: defaultSettings(),
-		loaders:  NewLoaderSet(),
-		blocks:   NewBlockSet(),
+		loaders:  loader.NewLoaderSet(),
+		blocks:   block.NewBlockSet(),
 	}
 	m.Configuration = newConfiguration(m, cnf...)
 	return m
 }
 
-func (m *marid) addFuncs(fns map[string]interface{}) {
+func (m *manager) addFuncs(fns map[string]interface{}) {
 	for k, fn := range fns {
 		m.funcs[k] = fn
 	}
 }
 
-func (m *marid) render(t *template.Template, d interface{}, dir, file string) error {
-	m.PrintIf("rendering...")
+func (m *manager) render(t *template.Template, d interface{}, dir, file string) error {
+	m.PrintIf("rendering template %s...", t.Name())
 	b := m.get()
-	var src []byte
-	var err error
 
-	if err = t.Execute(b, d); err != nil {
-		return RenderError(err)
+	if xErr := t.Execute(b, d); xErr != nil {
+		return x.RenderError(xErr)
 	}
 
-	src = b.Bytes()
-	src, err = format.Source(src)
-	if err != nil {
-		return InvalidGoCodeError(err)
+	src, fErr := format.Source(b.Bytes())
+	if fErr != nil {
+		m.PrintIf("go source format error: %s", fErr.Error())
+		m.PrintIf("for provided source:\n%s", b.Bytes())
+		return x.InvalidGoCodeError(fErr)
 	}
 
 	output := strings.ToLower(fmt.Sprintf("%s.go", file))
 	outputPath := filepath.Join(dir, output)
-	if err := ioutil.WriteFile(outputPath, src, 0644); err != nil {
-		return RenderError(err)
+	if wErr := ioutil.WriteFile(outputPath, src, 0644); wErr != nil {
+		return x.RenderError(wErr)
 	}
 
 	m.put(b)
-	m.PrintIf("rendered.")
+	m.PrintIf("rendered to directory %s, file %s", dir, file)
 	return nil
 }
 
-func (m *marid) Do(bl string, fl []string) error {
+func (m *manager) Do(bl string, fl []string) error {
 	m.PrintIf("Doing block %s with args %s", bl, fl)
 	if blk, ok := m.blocks[bl]; ok {
 		fls := blk.Flags()
@@ -102,21 +101,23 @@ func (m *marid) Do(bl string, fl []string) error {
 			}
 		}
 		if fpErr == nil && rErr == nil {
-			m.PrintIf("done doing block")
+			m.PrintIf("block %s finished", bl)
 			return nil
 		}
 	}
-	return NoBlockError(bl)
+	return x.NoBlockError(bl)
 }
 
-func (m *marid) Render(t, dir string, data interface{}) error {
+func (m *manager) Render(t, dir string, data interface{}) error {
+	m.PrintIf("Render called for: %s", t)
 	if tmpl, err := m.Fetch(t); err == nil {
 		return m.render(tmpl, data, t, dir)
 	}
-	return NoTemplateError(t)
+	return x.NoTemplateError(t)
 }
 
-func (m *marid) Fetch(t string) (*template.Template, error) {
+func (m *manager) Fetch(t string) (*template.Template, error) {
+	m.PrintIf("Fetch called for %s", t)
 	return m.assemble(t)
 }
 
@@ -132,7 +133,7 @@ var (
 	reTemplateTag *regexp.Regexp = regexp.MustCompile("{{ ?template \"([^\"]*)\" ?([^ ]*)? ?}}")
 )
 
-func (m *marid) assemble(t string) (*template.Template, error) {
+func (m *manager) assemble(t string) (*template.Template, error) {
 	m.PrintIf("assembling...%s", t)
 	stack := []*Node{}
 
@@ -209,21 +210,21 @@ func (m *marid) assemble(t string) (*template.Template, error) {
 		}
 	}
 
-	m.PrintIf("assembled %s...", t)
+	m.PrintIf("assembled")
 	return rootTemplate, nil
 }
 
-func getTemplate(m *marid, t string) (string, error) {
+func getTemplate(m *manager, t string) (string, error) {
 	for _, l := range m.loaders {
 		tmpl, err := l.Load(t)
 		if err == nil {
 			return tmpl, nil
 		}
 	}
-	return "", NoTemplateError(t)
+	return "", x.NoTemplateError(t)
 }
 
-func (m *marid) add(stack *[]*Node, t string) error {
+func (m *manager) add(stack *[]*Node, t string) error {
 	m.PrintIf("adding %s...", t)
 	tplSrc, err := getTemplate(m, t)
 
@@ -232,7 +233,7 @@ func (m *marid) add(stack *[]*Node, t string) error {
 	}
 
 	if len(tplSrc) < 1 {
-		return EmptyTemplateError(t)
+		return x.EmptyTemplateError(t)
 	}
 
 	extendsMatches := reExtendsTag.FindStringSubmatch(tplSrc)
@@ -251,6 +252,6 @@ func (m *marid) add(stack *[]*Node, t string) error {
 
 	*stack = append((*stack), node)
 
-	m.PrintIf("added...%s", t)
+	m.PrintIf("added")
 	return nil
 }

@@ -1,4 +1,4 @@
-package m
+package manager
 
 import (
 	"log"
@@ -10,6 +10,12 @@ type Logr interface {
 	Panicf(string, ...interface{})
 	Printf(string, ...interface{})
 	PrintIf(string, ...interface{})
+}
+
+var DefaultLogr Logr
+
+func init() {
+	DefaultLogr = newLogr(true)
 }
 
 type logr struct {

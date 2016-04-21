@@ -1,4 +1,4 @@
-package m
+package manager
 
 type settings struct {
 	verbose        bool

@@ -1,21 +1,22 @@
 package xrror
 
 import (
-	"flag"
+	f "flag"
+	"strings"
 
-	. "github.com/thrisp/marid/b"
-	. "github.com/thrisp/marid/f"
-	. "github.com/thrisp/marid/l"
+	"github.com/thrisp/marid/block"
+	"github.com/thrisp/marid/flag"
+	"github.com/thrisp/marid/loader"
 )
 
-var Xrror Block = BasicBlock(
+var Block block.Block = block.BasicBlock(
 	"xrror",
 	fs,
 	lr,
 	[]string{"xrror"},
 )
 
-var fs Flags = NewFlag("xrror", mkFlagSet())
+var fs flag.Flagset = flag.NewFlagset("xrror", mkFlagSet())
 
 var (
 	ErrorName         string
@@ -23,15 +24,15 @@ var (
 	ErrorFunctionName string
 )
 
-func mkFlagSet() *flag.FlagSet {
-	ret := flag.NewFlagSet("xrror", flag.PanicOnError)
+func mkFlagSet() *f.FlagSet {
+	ret := f.NewFlagSet("xrror", f.PanicOnError)
 	ret.StringVar(&ErrorName, "ErrorName", "xrror", "")
-	ret.StringVar(&Letter, "Letter", string(ErrorName[0]), "")
+	ret.StringVar(&Letter, "Letter", strings.ToLower(string(ErrorName[0])), "")
 	ret.StringVar(&ErrorFunctionName, "ErrorFunctionName", "Xrror", "")
 	return ret
 }
 
-var lr Loader = MapLoader(ml)
+var lr loader.Loader = loader.MapLoader(ml)
 
 var ml map[string]string = map[string]string{
 	"xrror": tmpl,

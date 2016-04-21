@@ -1,8 +1,8 @@
-package b
+package block
 
 import (
-	. "github.com/thrisp/marid/f"
-	. "github.com/thrisp/marid/l"
+	"github.com/thrisp/marid/flag"
+	"github.com/thrisp/marid/loader"
 )
 
 type BlockSet map[string]Block
@@ -13,8 +13,8 @@ func NewBlockSet() BlockSet {
 
 type Block interface {
 	Tag() string
-	Flags() Flags
-	Loader() Loader
+	Flags() flag.Flagset
+	Loaders() []loader.Loader
 	Funcs() map[string]interface{}
 	Templates() []string
 	Directory() string
@@ -23,8 +23,8 @@ type Block interface {
 
 type block struct {
 	tag       string
-	flags     Flags
-	loader    Loader
+	flags     flag.Flagset
+	loaders   []loader.Loader
 	funcs     map[string]interface{}
 	templates []string
 	directory string
@@ -32,16 +32,16 @@ type block struct {
 }
 
 func NewBlock(t string,
-	f Flags,
-	lr Loader,
+	f flag.Flagset,
+	lr loader.Loader,
 	fn map[string]interface{},
 	tm []string,
 	d string,
 	p string) Block {
-	return &block{t, f, lr, fn, tm, d, p}
+	return &block{t, f, []loader.Loader{lr}, fn, tm, d, p}
 }
 
-func BasicBlock(t string, f Flags, l Loader, tm []string) Block {
+func BasicBlock(t string, f flag.Flagset, l loader.Loader, tm []string) Block {
 	return NewBlock(t, f, l, nil, tm, ".", "main")
 }
 
@@ -49,12 +49,12 @@ func (b *block) Tag() string {
 	return b.tag
 }
 
-func (b *block) Flags() Flags {
+func (b *block) Flags() flag.Flagset {
 	return b.flags
 }
 
-func (b *block) Loader() Loader {
-	return b.loader
+func (b *block) Loaders() []loader.Loader {
+	return b.loaders
 }
 
 func (b *block) Funcs() map[string]interface{} {

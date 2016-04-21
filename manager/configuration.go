@@ -1,52 +1,17 @@
-package configuration
-
-import (
-	"flag"
-	"strings"
-
-	. "github.com/thrisp/marid/b"
-	. "github.com/thrisp/marid/f"
-	. "github.com/thrisp/marid/l"
-)
-
-var Configuration Block = BasicBlock(
-	"configuration",
-	fs,
-	lr,
-	[]string{"configuration"},
-)
-
-var fs Flags = NewFlag("configuration", mkFlagSet())
-
-var (
-	Configurable string
-	Letter       string
-)
-
-func mkFlagSet() *flag.FlagSet {
-	ret := flag.NewFlagSet("configuration", flag.PanicOnError)
-	ret.StringVar(&Configurable, "ErrorName", "Configurable", "")
-	ret.StringVar(&Letter, "Letter", strings.ToLower(string(Configurable[0:1])), "")
-	return ret
-}
-
-var lr Loader = MapLoader(ml)
-
-var ml map[string]string = map[string]string{
-	"configuration": tmpl,
-}
-
-var tmpl string = `package {{.PackageName}}
+package manager
 
 import (
 	"sort"
+
+	"github.com/thrisp/marid/block"
+	"github.com/thrisp/marid/loader"
 )
 
-type ConfigFn func(*{{.Configurable}}) error
+type ConfigFn func(*manager) error
 
 type Config interface {
 	Order() int
-	Configure(*{{.Configurable}}) error
+	Configure(*manager) error
 }
 
 type config struct {
@@ -66,7 +31,7 @@ func (c config) Order() int {
 	return c.order
 }
 
-func (c config) Configure({{.Letter}} *{{.Configurable}}) error {
+func (c config) Configure(m *manager) error {
 	return c.fn(m)
 }
 
@@ -92,12 +57,12 @@ type Configuration interface {
 }
 
 type configuration struct {
-	{{.Letter}}          *{{.Configurable}}
+	m          *manager
 	configured bool
 	list       configList
 }
 
-func newConfiguration({{.Letter}} *{{.Configurable}}, conf ...Config) *configuration {
+func newConfiguration(m *manager, conf ...Config) *configuration {
 	c := &configuration{
 		m:    m,
 		list: builtIns,
@@ -116,9 +81,9 @@ func (c *configuration) AddFn(fns ...ConfigFn) {
 	}
 }
 
-func configure({{.Letter}} *{{.Configurable}}, conf ...Config) error {
+func configure(m *manager, conf ...Config) error {
 	for _, c := range conf {
-		err := c.Configure({{.Letter}})
+		err := c.Configure(m)
 		if err != nil {
 			return err
 		}
@@ -127,11 +92,13 @@ func configure({{.Letter}} *{{.Configurable}}, conf ...Config) error {
 }
 
 func (c *configuration) Configure() error {
+	DefaultLogr.PrintIf("configuring...")
 	sort.Sort(c.list)
 
-	err := configure(c.{{.Letter}}, c.list...)
+	err := configure(c.m, c.list...)
 	if err == nil {
 		c.configured = true
+		DefaultLogr.PrintIf("configured")
 	}
 
 	return err
@@ -142,6 +109,45 @@ func (c *configuration) Configured() bool {
 }
 
 var builtIns = []Config{
-	//config{int, function},
+	config{1000, setBufferPool},
+	config{1001, setLogger},
 }
-`
+
+func setBufferPool(m *manager) error {
+	if m.bufferPool == nil {
+		m.bufferPool = newBufferPool(m.bufferPoolSize)
+	}
+	return nil
+}
+
+func setLogger(m *manager) error {
+	if m.Logr == nil {
+		m.Logr = newLogr(m.verbose)
+	}
+	return nil
+}
+
+func Verbose(is bool) Config {
+	return DefaultConfig(func(m *manager) error {
+		m.verbose = is
+		return nil
+	})
+}
+
+func Loaders(l ...loader.Loader) Config {
+	return DefaultConfig(func(m *manager) error {
+		m.loaders = append(m.loaders, l...)
+		return nil
+	})
+}
+
+func Blocks(b ...block.Block) Config {
+	return DefaultConfig(func(m *manager) error {
+		for _, bk := range b {
+			m.blocks[bk.Tag()] = bk
+			m.loaders = append(m.loaders, bk.Loaders()...)
+			m.addFuncs(bk.Funcs())
+		}
+		return nil
+	})
+}
