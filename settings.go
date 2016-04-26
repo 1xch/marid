@@ -1,4 +1,4 @@
-package manager
+package marid
 
 type settings struct {
 	verbose        bool

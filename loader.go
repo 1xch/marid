@@ -1,17 +1,25 @@
-package loader
+package marid
 
 import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	x "github.com/thrisp/marid/xrror"
 )
 
-type LoaderSet []Loader
+type LoaderSet struct {
+	l []Loader
+}
 
-func NewLoaderSet() LoaderSet {
-	return make([]Loader, 0)
+func NewLoaderSet() *LoaderSet {
+	return &LoaderSet{make([]Loader, 0)}
+}
+
+func (l *LoaderSet) AddLoaders(ls ...Loader) {
+	l.l = append(l.l, ls...)
+}
+
+func (l *LoaderSet) GetLoaders(ls ...Loader) []Loader {
+	return l.l
 }
 
 type Loader interface {
@@ -25,7 +33,7 @@ type BaseLoader struct {
 }
 
 func (b *BaseLoader) Load(name string) (string, error) {
-	return "", x.NoLoadMethod
+	return "", NoLoadMethod
 }
 
 func (b *BaseLoader) ListTemplates() []string {
@@ -52,7 +60,7 @@ func DirLoader(paths ...string) Loader {
 	for _, p := range paths {
 		p, err := filepath.Abs(filepath.Clean(p))
 		if err != nil {
-			d.Errors = append(d.Errors, x.PathError(p))
+			d.Errors = append(d.Errors, PathError(p))
 		}
 		d.Paths = append(d.Paths, p)
 	}
@@ -70,7 +78,7 @@ func (l *dirLoader) Load(name string) (string, error) {
 			}
 		}
 	}
-	return "", x.NoTemplateError(name)
+	return "", NoTemplateError(name)
 }
 
 func (l *dirLoader) ListTemplates() []string {
@@ -106,7 +114,7 @@ func (l *mapLoader) Load(name string) (string, error) {
 	if r, ok := l.TemplateMap[name]; ok {
 		return string(r), nil
 	}
-	return "", x.NoTemplateError(name)
+	return "", NoTemplateError(name)
 }
 
 func (l *mapLoader) ListTemplates() []string {
@@ -116,3 +124,14 @@ func (l *mapLoader) ListTemplates() []string {
 	}
 	return listing
 }
+
+var baseLoader Loader = MapLoader(cl)
+
+var cl map[string]string = map[string]string{
+	"block_base": base,
+}
+
+var base string = `// block {{ .Block }} created by Marid
+// edit at your own risk!
+{{ template "block_root" }}
+`

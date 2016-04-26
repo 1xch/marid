@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/thrisp/marid/block"
-	"github.com/thrisp/marid/block/builtin/configuration"
-	"github.com/thrisp/marid/block/builtin/xrror"
-	"github.com/thrisp/marid/manager"
+	"github.com/thrisp/marid"
+	"github.com/thrisp/marid/blocks/configuration"
+	"github.com/thrisp/marid/blocks/xrror"
 )
 
 var (
@@ -15,7 +14,7 @@ var (
 	blockArgs     []string
 	version       bool
 	verbose       bool
-	defaultBlocks []block.Block = []block.Block{
+	defaultBlocks []marid.Block = []marid.Block{
 		xrror.Block,
 		configuration.Block,
 	}
@@ -70,20 +69,20 @@ func init() {
 }
 
 func main() {
-	manager.DefaultLogr.PrintIf("starting...")
-	marid := manager.New(manager.Verbose(verbose), manager.Blocks(defaultBlocks...))
-	if err := marid.Configure(); err != nil {
-		marid.Fatalf("configuration error: %s", err)
+	if verbose {
+		marid.DefaultLogr.PrintIf("starting...")
+	}
+	m := marid.New(marid.Verbose(verbose), marid.Blocks(defaultBlocks...))
+	if err := m.Configure(); err != nil {
+		m.Fatalf("configuration error: %s", err)
 	}
 
 	if blockArg != "" {
-		var flags []string
-		flags = append(flags, blockArgs...)
-		if err := marid.Do(blockArg, flags); err != nil {
-			marid.Fatalf("do error: %s", err)
+		if err := m.Do(blockArg, blockArgs); err != nil {
+			m.Fatalf("do error: %s", err)
 		}
-		marid.PrintIf("done.")
+		m.PrintIf("done.")
 		os.Exit(0)
 	}
-	marid.Fatalf("no block specified! exiting.")
+	m.Fatalf("no block specified! exiting.")
 }

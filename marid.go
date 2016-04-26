@@ -1,4 +1,4 @@
-package manager
+package marid
 
 import (
 	"fmt"
@@ -8,13 +8,9 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
-
-	"github.com/thrisp/marid/block"
-	"github.com/thrisp/marid/loader"
-	x "github.com/thrisp/marid/xrror"
 )
 
-type Manager interface {
+type Marid interface {
 	Configuration
 	Logr
 	Doer
@@ -35,25 +31,21 @@ type manager struct {
 	Logr
 	*settings
 	*bufferPool
-	loaders loader.LoaderSet
-	blocks  block.BlockSet
-	funcs   map[string]interface{}
+	*LoaderSet
+	*BlockSet
+	*FuncSet
 }
 
-func New(cnf ...Config) Manager {
+func New(cnf ...Config) Marid {
 	m := &manager{
-		settings: defaultSettings(),
-		loaders:  loader.NewLoaderSet(),
-		blocks:   block.NewBlockSet(),
+		settings:  defaultSettings(),
+		LoaderSet: NewLoaderSet(),
+		BlockSet:  NewBlockSet(),
+		FuncSet:   NewFuncSet(),
 	}
+	m.AddLoaders(baseLoader)
 	m.Configuration = newConfiguration(m, cnf...)
 	return m
-}
-
-func (m *manager) addFuncs(fns map[string]interface{}) {
-	for k, fn := range fns {
-		m.funcs[k] = fn
-	}
 }
 
 func (m *manager) render(t *template.Template, d interface{}, dir, file string) error {
@@ -61,20 +53,20 @@ func (m *manager) render(t *template.Template, d interface{}, dir, file string) 
 	b := m.get()
 
 	if xErr := t.Execute(b, d); xErr != nil {
-		return x.RenderError(xErr)
+		return RenderError(xErr)
 	}
 
 	src, fErr := format.Source(b.Bytes())
 	if fErr != nil {
 		m.PrintIf("go source format error: %s", fErr.Error())
 		m.PrintIf("for provided source:\n%s", b.Bytes())
-		return x.InvalidGoCodeError(fErr)
+		return InvalidGoCodeError(fErr)
 	}
 
 	output := strings.ToLower(fmt.Sprintf("%s.go", file))
 	outputPath := filepath.Join(dir, output)
 	if wErr := ioutil.WriteFile(outputPath, src, 0644); wErr != nil {
-		return x.RenderError(wErr)
+		return RenderError(wErr)
 	}
 
 	m.put(b)
@@ -84,7 +76,7 @@ func (m *manager) render(t *template.Template, d interface{}, dir, file string) 
 
 func (m *manager) Do(bl string, fl []string) error {
 	m.PrintIf("Doing block %s with args %s", bl, fl)
-	if blk, ok := m.blocks[bl]; ok {
+	if blk, err := m.GetBlock(bl); err == nil {
 		fls := blk.Flags()
 		fpErr := fls.Parse(fl)
 		if fpErr != nil {
@@ -93,19 +85,19 @@ func (m *manager) Do(bl string, fl []string) error {
 		td := NewTemplateData(blk, fls)
 		var rErr error
 		for _, t := range blk.Templates() {
-			if tmpl, err := m.Fetch(t); err == nil {
-				rErr = m.render(tmpl, td.Data, blk.Directory(), t)
-				if rErr != nil {
-					return rErr
-				}
+			tmpl, tfErr := m.Fetch(t)
+			if tfErr != nil {
+				return tfErr
+			}
+			rErr = m.render(tmpl, td.Data, blk.Directory(), t)
+			if rErr != nil {
+				return rErr
 			}
 		}
-		if fpErr == nil && rErr == nil {
-			m.PrintIf("block %s finished", bl)
-			return nil
-		}
+		m.PrintIf("block %s finished", bl)
+		return nil
 	}
-	return x.NoBlockError(bl)
+	return NoBlockError(bl)
 }
 
 func (m *manager) Render(t, dir string, data interface{}) error {
@@ -113,7 +105,7 @@ func (m *manager) Render(t, dir string, data interface{}) error {
 	if tmpl, err := m.Fetch(t); err == nil {
 		return m.render(tmpl, data, t, dir)
 	}
-	return x.NoTemplateError(t)
+	return NoTemplateError(t)
 }
 
 func (m *manager) Fetch(t string) (*template.Template, error) {
@@ -202,7 +194,7 @@ func (m *manager) assemble(t string) (*template.Template, error) {
 			thisTemplate = rootTemplate.New(node.Name)
 		}
 
-		thisTemplate.Funcs(m.funcs)
+		thisTemplate.Funcs(m.GetFuncs())
 
 		_, err := thisTemplate.Parse(node.Src)
 		if err != nil {
@@ -215,17 +207,17 @@ func (m *manager) assemble(t string) (*template.Template, error) {
 }
 
 func getTemplate(m *manager, t string) (string, error) {
-	for _, l := range m.loaders {
+	for _, l := range m.GetLoaders() {
 		tmpl, err := l.Load(t)
 		if err == nil {
 			return tmpl, nil
 		}
 	}
-	return "", x.NoTemplateError(t)
+	return "", NoTemplateError(t)
 }
 
 func (m *manager) add(stack *[]*Node, t string) error {
-	m.PrintIf("adding %s...", t)
+	m.PrintIf("adding node %s...", t)
 	tplSrc, err := getTemplate(m, t)
 
 	if err != nil {
@@ -233,7 +225,7 @@ func (m *manager) add(stack *[]*Node, t string) error {
 	}
 
 	if len(tplSrc) < 1 {
-		return x.EmptyTemplateError(t)
+		return EmptyTemplateError(t)
 	}
 
 	extendsMatches := reExtendsTag.FindStringSubmatch(tplSrc)
@@ -252,6 +244,6 @@ func (m *manager) add(stack *[]*Node, t string) error {
 
 	*stack = append((*stack), node)
 
-	m.PrintIf("added")
+	m.PrintIf("added node")
 	return nil
 }

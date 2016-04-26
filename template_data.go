@@ -1,27 +1,25 @@
-package manager
+package marid
 
 import (
-	f "flag"
-
-	"github.com/thrisp/marid/block"
-	"github.com/thrisp/marid/flag"
+	"flag"
 )
 
 type TemplateData struct {
 	Data map[string]interface{}
 }
 
-func NewTemplateData(b block.Block, fs flag.Flags) *TemplateData {
+func NewTemplateData(b Block, fs *flag.FlagSet) *TemplateData {
 	ret := &TemplateData{
 		Data: make(map[string]interface{}),
 	}
 
-	fn := func(fl *f.Flag) {
+	fn := func(fl *flag.Flag) {
 		ret.Data[fl.Name] = fl.Value
 	}
 	fs.VisitAll(fn)
 
 	ret.Data["PackageName"] = b.Package()
+	ret.Data["Block"] = b.Tag()
 
 	return ret
 }

@@ -1,22 +1,18 @@
 package xrror
 
 import (
-	f "flag"
+	"flag"
 	"strings"
 
-	"github.com/thrisp/marid/block"
-	"github.com/thrisp/marid/flag"
-	"github.com/thrisp/marid/loader"
+	"github.com/thrisp/marid"
 )
 
-var Block block.Block = block.BasicBlock(
+var Block marid.Block = marid.BasicBlock(
 	"xrror",
-	fs,
-	lr,
+	mkFlagSet(),
+	xl,
 	[]string{"xrror"},
 )
-
-var fs flag.Flagset = flag.NewFlagset("xrror", mkFlagSet())
 
 var (
 	ErrorName         string
@@ -24,21 +20,22 @@ var (
 	ErrorFunctionName string
 )
 
-func mkFlagSet() *f.FlagSet {
-	ret := f.NewFlagSet("xrror", f.PanicOnError)
+func mkFlagSet() *flag.FlagSet {
+	ret := flag.NewFlagSet("xrror", flag.PanicOnError)
 	ret.StringVar(&ErrorName, "ErrorName", "xrror", "")
 	ret.StringVar(&Letter, "Letter", strings.ToLower(string(ErrorName[0])), "")
 	ret.StringVar(&ErrorFunctionName, "ErrorFunctionName", "Xrror", "")
 	return ret
 }
 
-var lr loader.Loader = loader.MapLoader(ml)
+var xl marid.Loader = marid.MapLoader(em)
 
-var ml map[string]string = map[string]string{
-	"xrror": tmpl,
+var em map[string]string = map[string]string{
+	"xrror": et,
 }
 
-var tmpl string = `package {{.PackageName}}
+var et string = `{{ extends "block_base" }}
+{{ define "block_root" }}package {{.PackageName}}
 
 import(
 	"fmt"
@@ -61,4 +58,5 @@ func ({{.Letter}} *{{.ErrorName}}) Out(vals ...interface{}) *{{.ErrorName}} {
 func {{.ErrorFunctionName}}(base string) *{{.ErrorName}} {
 	return &{{.ErrorName}}{base: base}
 }
+{{ end }}
 `
