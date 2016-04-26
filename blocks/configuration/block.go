@@ -4,18 +4,25 @@ import (
 	"flag"
 	"strings"
 
+<<<<<<< HEAD:blocks/configuration/block.go
 	"github.com/thrisp/marid/marid"
+=======
+	"github.com/thrisp/marid"
+>>>>>>> develop:blocks/configuration/block.go
 )
 
 var Block marid.Block = marid.BasicBlock(
 	"configuration",
-	fs,
-	lr,
+	mkFlagSet(),
+	cl,
 	[]string{"configuration"},
 )
 
+<<<<<<< HEAD:blocks/configuration/block.go
 var fs marid.Flags = marid.NewFlag("configuration", mkFlagSet())
 
+=======
+>>>>>>> develop:blocks/configuration/block.go
 var (
 	Configurable string
 	Letter       string
@@ -23,18 +30,23 @@ var (
 
 func mkFlagSet() *flag.FlagSet {
 	ret := flag.NewFlagSet("configuration", flag.PanicOnError)
-	ret.StringVar(&Configurable, "ErrorName", "Configurable", "")
+	ret.StringVar(&Configurable, "Configurable", "Configurable", "")
 	ret.StringVar(&Letter, "Letter", strings.ToLower(string(Configurable[0:1])), "")
 	return ret
 }
 
+<<<<<<< HEAD:blocks/configuration/block.go
 var lr marid.Loader = marid.MapLoader(ml)
+=======
+var cl marid.Loader = marid.MapLoader(cm)
+>>>>>>> develop:blocks/configuration/block.go
 
-var ml map[string]string = map[string]string{
-	"configuration": tmpl,
+var cm map[string]string = map[string]string{
+	"configuration": ct,
 }
 
-var tmpl string = `package {{.PackageName}}
+var ct string = `{{ extends "block_base" }}
+{{ define "block_root"}}package {{.PackageName}}
 
 import (
 	"sort"
@@ -142,4 +154,5 @@ func (c *configuration) Configured() bool {
 var builtIns = []Config{
 	//config{int, function},
 }
+{{ end }}
 `

@@ -6,10 +6,20 @@ import (
 	"path/filepath"
 )
 
-type LoaderSet []Loader
+type LoaderSet struct {
+	l []Loader
+}
 
-func NewLoaderSet() LoaderSet {
-	return make([]Loader, 0)
+func NewLoaderSet() *LoaderSet {
+	return &LoaderSet{make([]Loader, 0)}
+}
+
+func (l *LoaderSet) AddLoaders(ls ...Loader) {
+	l.l = append(l.l, ls...)
+}
+
+func (l *LoaderSet) GetLoaders(ls ...Loader) []Loader {
+	return l.l
 }
 
 type Loader interface {
@@ -114,3 +124,14 @@ func (l *mapLoader) ListTemplates() []string {
 	}
 	return listing
 }
+
+var baseLoader Loader = MapLoader(cl)
+
+var cl map[string]string = map[string]string{
+	"block_base": base,
+}
+
+var base string = `// block {{ .Block }} created by Marid
+// edit at your own risk!
+{{ template "block_root" }}
+`

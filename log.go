@@ -12,6 +12,12 @@ type Logr interface {
 	PrintIf(string, ...interface{})
 }
 
+var DefaultLogr Logr
+
+func init() {
+	DefaultLogr = newLogr(true)
+}
+
 type logr struct {
 	verbose bool
 	*log.Logger

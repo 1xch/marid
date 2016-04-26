@@ -4,11 +4,11 @@ import (
 	"sort"
 )
 
-type ConfigFn func(*marid) error
+type ConfigFn func(*manager) error
 
 type Config interface {
 	Order() int
-	Configure(*marid) error
+	Configure(*manager) error
 }
 
 type config struct {
@@ -28,7 +28,7 @@ func (c config) Order() int {
 	return c.order
 }
 
-func (c config) Configure(m *marid) error {
+func (c config) Configure(m *manager) error {
 	return c.fn(m)
 }
 
@@ -54,12 +54,12 @@ type Configuration interface {
 }
 
 type configuration struct {
-	m          *marid
+	m          *manager
 	configured bool
 	list       configList
 }
 
-func newConfiguration(m *marid, conf ...Config) *configuration {
+func newConfiguration(m *manager, conf ...Config) *configuration {
 	c := &configuration{
 		m:    m,
 		list: builtIns,
@@ -78,7 +78,7 @@ func (c *configuration) AddFn(fns ...ConfigFn) {
 	}
 }
 
-func configure(m *marid, conf ...Config) error {
+func configure(m *manager, conf ...Config) error {
 	for _, c := range conf {
 		err := c.Configure(m)
 		if err != nil {
@@ -89,11 +89,13 @@ func configure(m *marid, conf ...Config) error {
 }
 
 func (c *configuration) Configure() error {
+	DefaultLogr.PrintIf("configuring...")
 	sort.Sort(c.list)
 
 	err := configure(c.m, c.list...)
 	if err == nil {
 		c.configured = true
+		DefaultLogr.PrintIf("configured")
 	}
 
 	return err
@@ -108,14 +110,14 @@ var builtIns = []Config{
 	config{1001, setLogger},
 }
 
-func setBufferPool(m *marid) error {
+func setBufferPool(m *manager) error {
 	if m.bufferPool == nil {
 		m.bufferPool = newBufferPool(m.bufferPoolSize)
 	}
 	return nil
 }
 
-func setLogger(m *marid) error {
+func setLogger(m *manager) error {
 	if m.Logr == nil {
 		m.Logr = newLogr(m.verbose)
 	}
@@ -123,25 +125,25 @@ func setLogger(m *marid) error {
 }
 
 func Verbose(is bool) Config {
-	return DefaultConfig(func(m *marid) error {
+	return DefaultConfig(func(m *manager) error {
 		m.verbose = is
 		return nil
 	})
 }
 
 func Loaders(l ...Loader) Config {
-	return DefaultConfig(func(m *marid) error {
-		m.loaders = append(m.loaders, l...)
+	return DefaultConfig(func(m *manager) error {
+		m.AddLoaders(l...)
 		return nil
 	})
 }
 
 func Blocks(b ...Block) Config {
-	return DefaultConfig(func(m *marid) error {
+	return DefaultConfig(func(m *manager) error {
 		for _, bk := range b {
-			m.blocks[bk.Tag()] = bk
-			m.loaders = append(m.loaders, bk.Loader())
-			m.addFuncs(bk.Funcs())
+			m.AddBlocks(bk)
+			m.AddLoaders(bk.Loaders()...)
+			m.AddFuncs(bk.Funcs())
 		}
 		return nil
 	})
