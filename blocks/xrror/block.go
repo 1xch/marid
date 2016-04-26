@@ -4,11 +4,7 @@ import (
 	"flag"
 	"strings"
 
-<<<<<<< HEAD:blocks/xrror/block.go
-	"github.com/thrisp/marid/marid"
-=======
 	"github.com/thrisp/marid"
->>>>>>> develop:blocks/xrror/block.go
 )
 
 var Block marid.Block = marid.BasicBlock(
@@ -18,11 +14,6 @@ var Block marid.Block = marid.BasicBlock(
 	[]string{"xrror"},
 )
 
-<<<<<<< HEAD:blocks/xrror/block.go
-var fs marid.Flags = marid.NewFlag("xrror", mkFlagSet())
-
-=======
->>>>>>> develop:blocks/xrror/block.go
 var (
 	ErrorName         string
 	Letter            string
@@ -37,11 +28,7 @@ func mkFlagSet() *flag.FlagSet {
 	return ret
 }
 
-<<<<<<< HEAD:blocks/xrror/block.go
-var lr marid.Loader = marid.MapLoader(ml)
-=======
 var xl marid.Loader = marid.MapLoader(em)
->>>>>>> develop:blocks/xrror/block.go
 
 var em map[string]string = map[string]string{
 	"xrror": et,

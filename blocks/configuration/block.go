@@ -4,11 +4,7 @@ import (
 	"flag"
 	"strings"
 
-<<<<<<< HEAD:blocks/configuration/block.go
-	"github.com/thrisp/marid/marid"
-=======
 	"github.com/thrisp/marid"
->>>>>>> develop:blocks/configuration/block.go
 )
 
 var Block marid.Block = marid.BasicBlock(
@@ -18,11 +14,6 @@ var Block marid.Block = marid.BasicBlock(
 	[]string{"configuration"},
 )
 
-<<<<<<< HEAD:blocks/configuration/block.go
-var fs marid.Flags = marid.NewFlag("configuration", mkFlagSet())
-
-=======
->>>>>>> develop:blocks/configuration/block.go
 var (
 	Configurable string
 	Letter       string
@@ -35,11 +26,7 @@ func mkFlagSet() *flag.FlagSet {
 	return ret
 }
 
-<<<<<<< HEAD:blocks/configuration/block.go
-var lr marid.Loader = marid.MapLoader(ml)
-=======
 var cl marid.Loader = marid.MapLoader(cm)
->>>>>>> develop:blocks/configuration/block.go
 
 var cm map[string]string = map[string]string{
 	"configuration": ct,
