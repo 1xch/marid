@@ -1,4 +1,4 @@
-package marid
+package template
 
 import (
 	"io/ioutil"
@@ -6,20 +6,43 @@ import (
 	"path/filepath"
 )
 
-type LoaderSet struct {
+type Loaders interface {
+	GetLoaders() []Loader
+	SetLoaders(ls ...Loader)
+	Loader
+}
+
+type loaders struct {
 	l []Loader
 }
 
-func NewLoaderSet() *LoaderSet {
-	return &LoaderSet{make([]Loader, 0)}
+func NewLoaders() Loaders {
+	return &loaders{make([]Loader, 0)}
 }
 
-func (l *LoaderSet) AddLoaders(ls ...Loader) {
+func (l *loaders) SetLoaders(ls ...Loader) {
 	l.l = append(l.l, ls...)
 }
 
-func (l *LoaderSet) GetLoaders(ls ...Loader) []Loader {
+func (l *loaders) GetLoaders() []Loader {
 	return l.l
+}
+
+func (l *loaders) Load(t string) (string, error) {
+	for _, v := range l.l {
+		if s, err := v.Load(t); err == nil {
+			return s, nil
+		}
+	}
+	return "", NoTemplateError(t)
+}
+
+func (l *loaders) ListTemplates() []string {
+	var ret []string
+	for _, v := range l.l {
+		ret = append(ret, v.ListTemplates()...)
+	}
+	return ret
 }
 
 type Loader interface {
@@ -132,6 +155,6 @@ var cl map[string]string = map[string]string{
 }
 
 var base string = `// block {{ .Block }} created by Marid
-// edit at your own risk!
+// This is generated code, edit at your own risk!
 {{ template "block_root" }}
 `

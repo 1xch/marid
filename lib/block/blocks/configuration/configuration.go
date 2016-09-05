@@ -1,37 +1,5 @@
 package configuration
 
-import (
-	"flag"
-	"strings"
-
-	"github.com/thrisp/marid"
-)
-
-var Block marid.Block = marid.BasicBlock(
-	"configuration",
-	mkFlagSet(),
-	cl,
-	[]string{"configuration"},
-)
-
-var (
-	Configurable string
-	Letter       string
-)
-
-func mkFlagSet() *flag.FlagSet {
-	ret := flag.NewFlagSet("configuration", flag.PanicOnError)
-	ret.StringVar(&Configurable, "Configurable", "Configurable", "")
-	ret.StringVar(&Letter, "Letter", strings.ToLower(string(Configurable[0:1])), "")
-	return ret
-}
-
-var cl marid.Loader = marid.MapLoader(cm)
-
-var cm map[string]string = map[string]string{
-	"configuration": ct,
-}
-
 var ct string = `{{ extends "block_base" }}
 {{ define "block_root"}}package {{.PackageName}}
 
@@ -64,7 +32,7 @@ func (c config) Order() int {
 }
 
 func (c config) Configure({{.Letter}} *{{.Configurable}}) error {
-	return c.fn(m)
+	return c.fn({{.Letter}})
 }
 
 type configList []Config
@@ -96,7 +64,7 @@ type configuration struct {
 
 func newConfiguration({{.Letter}} *{{.Configurable}}, conf ...Config) *configuration {
 	c := &configuration{
-		m:    m,
+		{{.Letter}}:    {{.Letter}},
 		list: builtIns,
 	}
 	c.Add(conf...)

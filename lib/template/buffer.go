@@ -1,4 +1,4 @@
-package marid
+package template
 
 import "bytes"
 

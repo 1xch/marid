@@ -1,14 +1,17 @@
-package marid
+package block
 
 import (
 	"sort"
+
+	"github.com/thrisp/marid/lib/env"
+	"github.com/thrisp/marid/lib/template"
 )
 
-type ConfigFn func(*manager) error
+type ConfigFn func(*block) error
 
 type Config interface {
 	Order() int
-	Configure(*manager) error
+	Configure(*block) error
 }
 
 type config struct {
@@ -28,7 +31,7 @@ func (c config) Order() int {
 	return c.order
 }
 
-func (c config) Configure(m *manager) error {
+func (c config) Configure(m *block) error {
 	return c.fn(m)
 }
 
@@ -54,14 +57,14 @@ type Configuration interface {
 }
 
 type configuration struct {
-	m          *manager
+	b          *block
 	configured bool
 	list       configList
 }
 
-func newConfiguration(m *manager, conf ...Config) *configuration {
+func newConfiguration(b *block, conf ...Config) *configuration {
 	c := &configuration{
-		m:    m,
+		b:    b,
 		list: builtIns,
 	}
 	c.Add(conf...)
@@ -78,9 +81,9 @@ func (c *configuration) AddFn(fns ...ConfigFn) {
 	}
 }
 
-func configure(m *manager, conf ...Config) error {
+func configure(b *block, conf ...Config) error {
 	for _, c := range conf {
-		err := c.Configure(m)
+		err := c.Configure(b)
 		if err != nil {
 			return err
 		}
@@ -89,13 +92,11 @@ func configure(m *manager, conf ...Config) error {
 }
 
 func (c *configuration) Configure() error {
-	DefaultLogr.PrintIf("configuring...")
 	sort.Sort(c.list)
 
-	err := configure(c.m, c.list...)
+	err := configure(c.b, c.list...)
 	if err == nil {
 		c.configured = true
-		DefaultLogr.PrintIf("configured")
 	}
 
 	return err
@@ -105,46 +106,18 @@ func (c *configuration) Configured() bool {
 	return c.configured
 }
 
-var builtIns = []Config{
-	config{1000, setBufferPool},
-	config{1001, setLogger},
-}
+var builtIns = []Config{}
 
-func setBufferPool(m *manager) error {
-	if m.bufferPool == nil {
-		m.bufferPool = newBufferPool(m.bufferPoolSize)
-	}
-	return nil
-}
-
-func setLogger(m *manager) error {
-	if m.Logr == nil {
-		m.Logr = newLogr(m.verbose)
-	}
-	return nil
-}
-
-func Verbose(is bool) Config {
-	return DefaultConfig(func(m *manager) error {
-		m.verbose = is
+func Command(group, tag, use string, priority int, efn env.ExecutionFunc, fs *env.FlagSet) Config {
+	return DefaultConfig(func(b *block) error {
+		b.Command = env.NewCommand(group, tag, use, priority, efn, fs)
 		return nil
 	})
 }
 
-func Loaders(l ...Loader) Config {
-	return DefaultConfig(func(m *manager) error {
-		m.AddLoaders(l...)
-		return nil
-	})
-}
-
-func Blocks(b ...Block) Config {
-	return DefaultConfig(func(m *manager) error {
-		for _, bk := range b {
-			m.AddBlocks(bk)
-			m.AddLoaders(bk.Loaders()...)
-			m.AddFuncs(bk.Funcs())
-		}
+func Templater(t template.Templater) Config {
+	return DefaultConfig(func(b *block) error {
+		b.Templater = t
 		return nil
 	})
 }

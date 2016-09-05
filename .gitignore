@@ -27,7 +27,8 @@ Godeps/*
 !Godeps/Godeps.json
 
 #marid
-marid/marid
+_back
+marid
 *.out
 *.old.*
 coverage.html

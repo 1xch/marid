@@ -1,116 +1,80 @@
-package marid
+package template
 
 import (
 	"fmt"
 	"go/format"
+	"html/template"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"text/template"
+
+	"github.com/thrisp/marid/lib/env"
 )
 
-type Marid interface {
-	Configuration
-	Logr
-	Doer
-	Templater
-}
-
-type Doer interface {
-	Do(string, []string) error
-}
-
 type Templater interface {
-	Render(string, string, interface{}) error
 	Fetch(string) (*template.Template, error)
+	Render(string, string, string, interface{}) error //dir, file, template, data
+	FuncSet
+	Loaders
 }
 
-type manager struct {
-	Configuration
-	Logr
-	*settings
+type templater struct {
 	*bufferPool
-	*LoaderSet
-	*BlockSet
-	*FuncSet
+	FuncSet
+	Loaders
 }
 
-func New(cnf ...Config) Marid {
-	m := &manager{
-		settings:  defaultSettings(),
-		LoaderSet: NewLoaderSet(),
-		BlockSet:  NewBlockSet(),
-		FuncSet:   NewFuncSet(),
+func New(b int, f FuncSet, l ...Loader) Templater {
+	bp := newBufferPool(b)
+	fs := newFuncSet()
+	if f != nil {
+		fs.SetFuncs(f)
 	}
-	m.AddLoaders(baseLoader)
-	m.Configuration = newConfiguration(m, cnf...)
-	return m
+	ls := NewLoaders()
+	l = append(l, baseLoader)
+	ls.SetLoaders(l...)
+	return &templater{
+		bufferPool: bp,
+		FuncSet:    fs,
+		Loaders:    ls,
+	}
 }
 
-func (m *manager) render(t *template.Template, d interface{}, dir, file string) error {
-	m.PrintIf("rendering template %s...", t.Name())
-	b := m.get()
+func (t *templater) Fetch(tpl string) (*template.Template, error) {
+	return t.assemble(tpl)
+}
 
-	if xErr := t.Execute(b, d); xErr != nil {
-		return RenderError(xErr)
+func (t *templater) Render(dir, file, tpl string, data interface{}) error {
+	var err error
+	var tmpl *template.Template
+
+	tmpl, err = t.assemble(tpl)
+	if err != nil {
+		return err
 	}
 
-	src, fErr := format.Source(b.Bytes())
-	if fErr != nil {
-		m.PrintIf("go source format error: %s", fErr.Error())
-		m.PrintIf("for provided source:\n%s", b.Bytes())
-		return InvalidGoCodeError(fErr)
+	b := t.get()
+
+	err = tmpl.Execute(b, data)
+	if err != nil {
+		return RenderError(err)
 	}
+
+	var src []byte
+	src, err = format.Source(b.Bytes())
+	if err != nil {
+		return InvalidGoCodeError(err)
+	}
+
+	t.put(b)
 
 	output := strings.ToLower(fmt.Sprintf("%s.go", file))
 	outputPath := filepath.Join(dir, output)
 	if wErr := ioutil.WriteFile(outputPath, src, 0644); wErr != nil {
 		return RenderError(wErr)
 	}
-
-	m.put(b)
-	m.PrintIf("rendered to directory %s, file %s", dir, file)
-	return nil
-}
-
-func (m *manager) Do(bl string, fl []string) error {
-	m.PrintIf("Doing block %s with args %s", bl, fl)
-	if blk, err := m.GetBlock(bl); err == nil {
-		fls := blk.Flags()
-		fpErr := fls.Parse(fl)
-		if fpErr != nil {
-			return fpErr
-		}
-		td := NewTemplateData(blk, fls)
-		var rErr error
-		for _, t := range blk.Templates() {
-			tmpl, tfErr := m.Fetch(t)
-			if tfErr != nil {
-				return tfErr
-			}
-			rErr = m.render(tmpl, td.Data, blk.Directory(), t)
-			if rErr != nil {
-				return rErr
-			}
-		}
-		m.PrintIf("block %s finished", bl)
-		return nil
-	}
-	return NoBlockError(bl)
-}
-
-func (m *manager) Render(t, dir string, data interface{}) error {
-	m.PrintIf("Render called for: %s", t)
-	if tmpl, err := m.Fetch(t); err == nil {
-		return m.render(tmpl, data, t, dir)
-	}
-	return NoTemplateError(t)
-}
-
-func (m *manager) Fetch(t string) (*template.Template, error) {
-	m.PrintIf("Fetch called for %s", t)
-	return m.assemble(t)
+	return err
 }
 
 type Node struct {
@@ -125,11 +89,10 @@ var (
 	reTemplateTag *regexp.Regexp = regexp.MustCompile("{{ ?template \"([^\"]*)\" ?([^ ]*)? ?}}")
 )
 
-func (m *manager) assemble(t string) (*template.Template, error) {
-	m.PrintIf("assembling...%s", t)
+func (t *templater) assemble(tpl string) (*template.Template, error) {
 	stack := []*Node{}
 
-	err := m.add(&stack, t)
+	err := t.add(&stack, tpl)
 
 	if err != nil {
 		return nil, err
@@ -143,7 +106,7 @@ func (m *manager) assemble(t string) (*template.Template, error) {
 		node.Src = reIncludeTag.ReplaceAllStringFunc(node.Src, func(raw string) string {
 			parsed := reIncludeTag.FindStringSubmatch(raw)
 			templatePath := parsed[1]
-			subTpl, err := getTemplate(m, templatePath)
+			subTpl, err := getTemplate(t, templatePath)
 			if err != nil {
 				errInReplace = err
 				return "[error]"
@@ -194,7 +157,7 @@ func (m *manager) assemble(t string) (*template.Template, error) {
 			thisTemplate = rootTemplate.New(node.Name)
 		}
 
-		thisTemplate.Funcs(m.GetFuncs())
+		thisTemplate.Funcs(t.GetFuncs())
 
 		_, err := thisTemplate.Parse(node.Src)
 		if err != nil {
@@ -202,35 +165,33 @@ func (m *manager) assemble(t string) (*template.Template, error) {
 		}
 	}
 
-	m.PrintIf("assembled")
 	return rootTemplate, nil
 }
 
-func getTemplate(m *manager, t string) (string, error) {
-	for _, l := range m.GetLoaders() {
-		tmpl, err := l.Load(t)
+func getTemplate(t *templater, tpl string) (string, error) {
+	for _, l := range t.GetLoaders() {
+		tmpl, err := l.Load(tpl)
 		if err == nil {
 			return tmpl, nil
 		}
 	}
-	return "", NoTemplateError(t)
+	return "", NoTemplateError(tpl)
 }
 
-func (m *manager) add(stack *[]*Node, t string) error {
-	m.PrintIf("adding node %s...", t)
-	tplSrc, err := getTemplate(m, t)
+func (t *templater) add(stack *[]*Node, tpl string) error {
+	tplSrc, err := getTemplate(t, tpl)
 
 	if err != nil {
 		return err
 	}
 
 	if len(tplSrc) < 1 {
-		return EmptyTemplateError(t)
+		return EmptyTemplateError(tpl)
 	}
 
 	extendsMatches := reExtendsTag.FindStringSubmatch(tplSrc)
 	if len(extendsMatches) == 2 {
-		err := m.add(stack, extendsMatches[1])
+		err := t.add(stack, extendsMatches[1])
 		if err != nil {
 			return err
 		}
@@ -238,12 +199,60 @@ func (m *manager) add(stack *[]*Node, t string) error {
 	}
 
 	node := &Node{
-		Name: t,
+		Name: tpl,
 		Src:  tplSrc,
 	}
 
 	*stack = append((*stack), node)
 
-	m.PrintIf("added node")
 	return nil
+}
+
+type funcSet struct {
+	f map[string]interface{}
+}
+
+func newFuncSet() *funcSet {
+	return &funcSet{make(map[string]interface{})}
+}
+
+type FuncSet interface {
+	SetFuncs(...FuncSet)
+	GetFuncs() map[string]interface{}
+}
+
+func (f *funcSet) SetFuncs(fs ...FuncSet) {
+	for _, s := range fs {
+		for k, fn := range s.GetFuncs() {
+			f.f[k] = fn
+		}
+	}
+}
+
+func (f *funcSet) GetFuncs() map[string]interface{} {
+	return f.f
+}
+
+type TemplateData struct {
+	Data map[string]interface{}
+}
+
+func Data(fs env.Flagger, additional ...string) *TemplateData {
+	ret := &TemplateData{
+		Data: make(map[string]interface{}),
+	}
+
+	fn := func(fl *env.Flag) {
+		ret.Data[fl.Name] = fl.Value
+	}
+	fs.VisitAll(fn)
+
+	for _, v := range additional {
+		spl := strings.Split(v, ":")
+		if len(spl) == 2 {
+			ret.Data[spl[0]] = spl[1]
+		}
+	}
+
+	return ret
 }
